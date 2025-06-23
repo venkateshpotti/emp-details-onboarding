@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Dashboard - Employee Submissions</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #f4f7f6; }
+        .dashboard-container { display: flex; height: 100vh; }
+        .sidebar { width: 300px; background-color: #343a40; color: white; padding: 20px; overflow-y: auto; }
+        .sidebar h2 { margin-top: 0; }
+        .employee-list { list-style: none; padding: 0; }
+        .employee-list li { padding: 12px; margin-bottom: 8px; background-color: #495057; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
+        .employee-list li:hover, .employee-list li.active { background-color: #0900ad; }
+        .main-content { flex-grow: 1; padding: 40px; overflow-y: auto; }
+        .details-view { background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .placeholder { text-align: center; color: #6c757d; font-size: 1.5rem; padding-top: 100px; }
+        .section { margin-bottom: 25px; border-bottom: 1px solid #dee2e6; padding-bottom: 20px; }
+        .section:last-child { border-bottom: none; }
+        .section h3 { color: #000; margin-top: 0; }
+        .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .detail-item { font-size: 1rem; }
+        .detail-item strong { color: #495057; display: block; margin-bottom: 4px; }
+        .document-link { color: #0900ad; text-decoration: none; font-weight: bold; }
+        .document-link:hover { text-decoration: underline; }
+        .sub-section { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <h2>Employee Submissions</h2>
+            <ul id="employeeList" class="employee-list">
+                <!-- Employee names will be loaded here -->
+            </ul>
+        </div>
+        <div class="main-content">
+            <div id="employeeDetails" class="details-view" style="display: none;">
+                <!-- Full employee details will be rendered here -->
+            </div>
+            <div id="placeholder" class="placeholder">
+                <p>Select an employee from the list to view their details.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const employeeList = document.getElementById('employeeList');
+        const employeeDetailsContainer = document.getElementById('employeeDetails');
+        const placeholder = document.getElementById('placeholder');
+
+        // Fetch all employees to populate the sidebar list
+        async function loadEmployees() {
+            try {
+                const response = await fetch('http://localhost:3000/api/employees');
+                const employees = await response.json();
+                employeeList.innerHTML = ''; // Clear existing list
+                employees.forEach(emp => {
+                    const li = document.createElement('li');
+                    li.textContent = `${emp.first_name} ${emp.last_name}`;
+                    li.dataset.id = emp.id;
+                    li.addEventListener('click', () => loadEmployeeDetails(emp.id));
+                    employeeList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Failed to load employees:', error);
+                employeeList.innerHTML = '<li>Error loading employees.</li>';
+            }
+        }
+
+        // Fetch and display details for a single employee
+        async function loadEmployeeDetails(id) {
+            // Highlight the selected employee in the list
+            document.querySelectorAll('#employeeList li').forEach(li => {
+                li.classList.toggle('active', li.dataset.id == id);
+            });
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/employees/${id}`);
+                const data = await response.json();
+
+                placeholder.style.display = 'none';
+                employeeDetailsContainer.style.display = 'block';
+
+                // Helper to render file links
+                const renderLink = (path, text) => {
+                    return path ? `<a href="/${path}" class="document-link" target="_blank">${text}</a>` : 'Not Provided';
+                };
+
+                // Helper to render a block of details
+                const renderDetail = (label, value) => {
+                    return `<div class="detail-item"><strong>${label}</strong><span>${value || 'N/A'}</span></div>`;
+                };
+
+                // Build the HTML for the details view
+                employeeDetailsContainer.innerHTML = `
+                    <div class="section">
+                        <h3>${data.first_name} ${data.last_name}</h3>
+                        <div class="detail-grid">
+                            ${renderDetail('Email', data.personal_email)}
+                            ${renderDetail('Phone', data.phone)}
+                            ${renderDetail('Alternate Phone', data.alternate_phone)}
+                            ${renderDetail('Date of Birth', new Date(data.date_of_birth).toLocaleDateString())}
+                            ${renderDetail('Gender', data.gender)}
+                            ${renderDetail('Marital Status', data.marital_status)}
+                            ${renderDetail('Nationality', data.nationality)}
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Address Information</h3>
+                        <div class="detail-grid">
+                            ${renderDetail('Permanent Address', `${data.permanent_address.street}, ${data.permanent_address.city}, ${data.permanent_address.state} ${data.permanent_address.zip}, ${data.permanent_address.country}`)}
+                            ${renderDetail('Current Address', `${data.current_address.street}, ${data.current_address.city}, ${data.current_address.state} ${data.current_address.zip}, ${data.current_address.country}`)}
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Emergency Contacts</h3>
+                        ${data.emergency_contacts.map(c => `
+                            <div class="sub-section">
+                                <h4>${c.type} Contact</h4>
+                                <div class="detail-grid">
+                                    ${renderDetail('Name', c.name)}
+                                    ${renderDetail('Relationship', c.relationship)}
+                                    ${renderDetail('Phone', c.phone)}
+                                    ${renderDetail('Email', c.email)}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="section">
+                        <h3>Education History</h3>
+                        ${Object.entries(data.education_history).map(([level, edu]) => {
+                            if (level === 'additional' && edu.length > 0) {
+                                return edu.map((addEdu, i) => `
+                                    <div class="sub-section">
+                                        <h4>Additional Degree ${i+1}</h4>
+                                        <div class="detail-grid">
+                                            ${renderDetail('Institution', addEdu.college)}
+                                            ${renderDetail('Degree', addEdu.degree)}
+                                            ${renderDetail('Branch', addEdu.branch)}
+                                            ${renderDetail('Year', addEdu.year)}
+                                            ${renderDetail('Grade', addEdu.grade)}
+                                        </div>
+                                        ${renderLink(addEdu.certificate, 'View Certificate')}
+                                    </div>`).join('');
+                            }
+                            if (typeof edu === 'object' && edu.school || edu.college) {
+                                return `
+                                <div class="sub-section">
+                                    <h4>${level.toUpperCase()}</h4>
+                                    <div class="detail-grid">
+                                        ${renderDetail('Institution', edu.school || edu.college)}
+                                        ${renderDetail('Year', edu.year)}
+                                        ${renderDetail('Grade', edu.grade)}
+                                    </div>
+                                    ${renderLink(edu.certificate, 'View Certificate')}
+                                </div>`;
+                            }
+                            return '';
+                        }).join('')}
+                    </div>
+                    
+                    ${data.work_experience.length > 0 ? `
+                    <div class="section">
+                        <h3>Work Experience</h3>
+                        ${data.work_experience.map(exp => `
+                            <div class="sub-section">
+                                <h4>${exp.jobTitle} at ${exp.company}</h4>
+                                <div class="detail-grid">
+                                    ${renderDetail('Start Date', new Date(exp.startDate).toLocaleDateString())}
+                                    ${renderDetail('End Date', exp.endDate ? new Date(exp.endDate).toLocaleDateString() : 'Current')}
+                                </div>
+                                <p><strong>Description:</strong> ${exp.description || 'N/A'}</p>
+                                ${renderLink(exp.certificate, 'View Experience Certificate')}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                    
+                    ${data.insurance_info.length > 0 ? `
+                    <div class="section">
+                        <h3>Insurance Information</h3>
+                        ${data.insurance_info.map(ins => `
+                            <div class="sub-section">
+                                <h4>${ins.provider}</h4>
+                                <div class="detail-grid">
+                                    ${renderDetail('Policy Number', ins.policyNumber)}
+                                </div>
+                                ${renderLink(ins.document, 'View Insurance Document')}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+
+                    <div class="section">
+                        <h3>Bank Information</h3>
+                        <div class="detail-grid">
+                           ${renderDetail('Bank Name', data.bank_info.bankName)}
+                           ${renderDetail('Account Name', data.bank_info.accountName)}
+                           ${renderDetail('Account Number', data.bank_info.accountNumber)}
+                           ${renderDetail('Routing/IBAN', data.bank_info.routingNumber || data.bank_info.iban)}
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>Uploaded Documents</h3>
+                        <div class="detail-grid">
+                            ${renderDetail('ID Proof', renderLink(data.id_proof_path, 'View ID'))}
+                            ${renderDetail('Resume/CV', renderLink(data.resume_path, 'View Resume'))}
+                            ${renderDetail('Signed Document', renderLink(data.signed_document_path, 'View Signed Document'))}
+                        </div>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error(`Failed to load details for employee ${id}:`, error);
+                employeeDetailsContainer.innerHTML = '<p>Error loading employee details.</p>';
+            }
+        }
+
+        // Initial load
+        loadEmployees();
+    });
+    </script>
+
+</body>
+</html>
