@@ -1,0 +1,28 @@
+To run this we need 
+                onboarding-app/
+                ├── 📂 uploads/          <-- Create this empty folder
+                ├── 📜 hr.html
+                ├── 📜 index.html
+                ├── 📜 server.js
+Set Up the PostgreSQL Database
+                CREATE DATABASE emp_details_db;
+
+
+Open your computer's terminal or command prompt.
+                cd path/to/your/onboarding-app
+Initialize a Node.js project. This command creates a package.json file 
+                npm init -y
+                npm install express pg multer cors
+
+Then we can see all the files like this
+                onboarding-app/
+                ├── 📂 node_modules/      <-- Created automatically by npm
+                ├── 📂 uploads/
+                ├── 📜 hr.html
+                ├── 📜 index.html
+                ├── 📜 server.js
+                ├── 📜 package.json      <-- Created automatically by npm
+
+
+Then we can run from bash
+                node server.js
